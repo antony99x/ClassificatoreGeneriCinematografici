@@ -1,7 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score
 
-train_rfc_acc, valid_rfc_acc = 0
+train_rfc_acc, valid_rfc_acc = 0, 0
 
 
 def classificazione(y_train, y_valid, contatore_generi, costruzione_modello):

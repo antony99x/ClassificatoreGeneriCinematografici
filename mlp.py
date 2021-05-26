@@ -1,7 +1,7 @@
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, accuracy_score
 
-train_mlp_acc, valid_mlp_acc = 0
+train_mlp_acc, valid_mlp_acc = 0, 0
 
 
 def classificazione(y_train, y_valid, contatore_generi, costruzione_modello):
