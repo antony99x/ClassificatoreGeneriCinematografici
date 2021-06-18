@@ -8,7 +8,8 @@ from ast import literal_eval
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from google_trans_new import google_translator
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -46,13 +47,16 @@ generi = dataframe['genres'][generipresenti]
 # Separo e seleziono i generi
 mlb = MultiLabelBinarizer()
 etichette = mlb.fit_transform(generi)
+# print(etichette)
 classi_etichette = mlb.classes_
 # print(classi_etichette)
 
 dati_etichette = pd.DataFrame(etichette, columns=classi_etichette)
+# print(dati_etichette)
 val = {}
 for x in classi_etichette:
     val.update({x: dati_etichette[x].value_counts()[1]})
+# print(val)
 
 # Ordino i generi dei film in base al loro numero di istanze in ordine decrescente
 val_ordinati = sorted(val.items(), key=lambda kv: kv[1], reverse=True)
@@ -67,12 +71,11 @@ contatore_fittizio = sorted(val.items(), key=lambda kv: kv[1], reverse=True)[0:2
 contatore_generi = [i[0] for i in contatore_fittizio]  # Visualizzo i soli generi
 # print(contatore_generi)
 
-# genre_counts è l'elenco finale dei generi che verranno utilizzati per l' addestramento del modello
+# contatore_generi è l'elenco finale dei generi che verranno utilizzati per l' addestramento del modello
 generi_finali = MultiLabelBinarizer(classes=contatore_generi)
-top = generi_finali.fit(generi)
 # Separo la variabile dipendente
-y = generi_finali.transform(generi)  # I generi esclusi in genre_counts verranno ignorati durante l'implementazione
-# del MultiLabelBinarizer
+y = generi_finali.fit_transform(generi)
+# I generi esclusi in contatore_generi verranno ignorati durante l'implementazione del MultiLabelBinarizer
 # print(generi_finali.classes_)
 
 # Separo la variabile indipendente. La feature 'overview' verrà utilizzata per predire i generi dei film
@@ -84,7 +87,7 @@ X = dataframe['overview']
 # Quindi, non li includeremo nel training set.
 film_senza_genere = y.sum(axis=1) == 0
 X_train, X_valid, y_train, y_valid = train_test_split(X[~film_senza_genere], y[~film_senza_genere], test_size=0.3,
-                                                      random_state=1234)
+                                                      random_state=42)
 # print(X_train.shape, y_train.shape)
 # print(X_valid.shape, y_valid.shape)
 
@@ -98,53 +101,52 @@ X_train_vec = vettorizzatore.fit_transform(X_train)
 X_valid_vec = vettorizzatore.transform(X_valid)
 
 
-# print(X_train_vec)
-# print(X_valid_vec)
+# print(X_train_vec, X_valid_vec)
+
 
 # Nel modello di classificazione, implementerò i seguenti classificatori:
 # 1 - Decision Tree Classifier
 # 2 - Random Forest Classifier
 # 3 - Extra Trees Classifier
 # 4 - Multilayer perceptron Classifier (MLP): modello di rete neurale
-# Il vantaggio di MLP Classifier è che questa implementazione funziona con i valori in virgola mobile rappresentati
-# come array numpy densi o array scipy sparsi. Dato che i dati di training sono matrici sparse e array numpy, l'MLP ci
-# aiuterebbe a costruire un modello di classificazione migliore.
 
 def costruzione_modello(modello, parameters=None, cv=10):
     if parameters is None:
         modello.fit(X_train_vec, y_train)
         return modello, modello.predict(X_train_vec), modello.predict(X_valid_vec)
     else:
-        model_cv = GridSearchCV(estimator=modello, param_grid=parameters, cv=cv)
+        model_cv = RandomizedSearchCV(estimator=modello, param_distributions=parameters, cv=cv, verbose=3)
         model_cv.fit(X_train_vec, y_train)
         modello = model_cv.best_estimator_
-
+        # print('Best parameters found: ', model_cv.best_params_, '\nBest score found: ', model_cv.best_score_)
         return model_cv, modello, modello.predict(X_train_vec), modello.predict(X_valid_vec)
 
 
 # Decision Tree Classifier
-decisiontree.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
+model_dtr = decisiontree.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
 
 # Random Forest Classifier
-randomforest.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
+model_rfc = randomforest.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
 
 # Extra Trees Classifier
-extratrees.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
+model_etc = extratrees.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
 
 # MLP Classifier
-mlp.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
+model_mlp = mlp.classificazione(y_train, y_valid, contatore_generi, costruzione_modello)
 
 # Valutazione delle metriche del dataframe
 print("VALUTAZIONE FINALE DELLE PRECISIONI DEI CLASSIFICATORI\n")
 train_acc = [decisiontree.getAccTrain(), randomforest.getAccTrain(), extratrees.getAccTrain(), mlp.getAccTrain()]
 valid_acc = [decisiontree.getAccValid(), randomforest.getAccValid(), extratrees.getAccValid(), mlp.getAccValid()]
 eval_mat = pd.DataFrame([train_acc, valid_acc], index=['Training', 'Validation'],
-                        columns=['Classificatore Decision Tree', 'Classificatore Random Forest', 'Classificatore Extra Trees',
+                        columns=['Classificatore Decision Tree', 'Classificatore Random Forest',
+                                 'Classificatore Extra Trees',
                                  'Classificatore MLP'])
 print(eval_mat.T)
+print("\n\n\n")
 
 # Osservazioni:
-#
+
 # Gli alberi di decisione tendono a sovradimensionare (overfit) il set di dati di training (come si può anche vedere
 # sopra). Possiamo vedere chiaramente che il classificatore dell'albero di decisione non riesce a funzionare bene sul
 # set di dati di validazione (dato che le prestazioni si valutano su questo set).
@@ -152,6 +154,75 @@ print(eval_mat.T)
 # Random Forest è un algoritmo di bagging e ha un migliore controllo sull'over-fitting. Qui, possiamo vedere che il
 # classificatore Random Forest ha prestazioni migliori rispetto all'albero decisionale.
 
-# Il Multi-layer Perceptron (MLP) si basa su reti neurali e utilizza una tecnica di apprendimento supervisionato
-# chiamata backpropagation per l'addestramento. Nel dataframe sopra, possiamo vedere chiaramente che MLP Classifier
-# offre il meglio tra i 3.
+# Extremely Randomized Trees (Extra Trees) è un algoritmo di apprendimento automatico, il quale crea un gran numero di
+# alberi di decisione dal training set e la classificazione viene fatta tramite un voto di maggioranza. A differenza
+# dell'algoritmo Random Forest, Extra Trees seleziona il miglior split randomicamente.
+
+# Il Multi-Layer Perceptron (MLP) si basa su reti neurali e utilizza una tecnica di apprendimento supervisionato
+# chiamata backpropagation per l'addestramento.
+
+
+# Fase di scelta del classificatore da utilizzare
+
+valido = False
+while not valido:
+    dec_classifier = input('In base alla valutazione delle precisioni dei vari classificatori appena '
+                           'analizzati, digita:\n'
+                           '1 se vuoi usare il Decision Tree Classifier;\n'
+                           '2 se vuoi usare il Random Forest Classifier;\n'
+                           '3 se vuoi usare l\'Extra Trees Classifier;\n'
+                           '4 se vuoi usare il Multi-Layer Perceptron (MLP).\n')
+    if dec_classifier == '1':
+        valido = True
+        classificatore_scelto = model_dtr
+    elif dec_classifier == '2':
+        valido = True
+        classificatore_scelto = model_rfc
+    elif dec_classifier == '3':
+        valido = True
+        classificatore_scelto = model_etc
+    elif dec_classifier == '4':
+        valido = True
+        classificatore_scelto = model_mlp
+    else:
+        print('Digita una scelta valida.')
+
+
+# Fase di input del set di film da cui ricavare il genere (applicazione del modello)
+
+valido = False
+while not valido:
+    decisione = input('Importa un set di film da cui ricavare il genere.\n'
+                      'Digita 1 se vuoi importarne uno preesistente da file. Digita 2 se vuoi crearne uno.\n')
+    if decisione == '1':
+        valido = True
+        set_input = pd.read_excel('set_prova.xlsx', index_col='title')
+        # print(set_input)
+
+    elif decisione == '2':
+        valido = True
+        set_input = pd.DataFrame(columns=['title', 'overview'])
+        scelta_input = '1'
+        while scelta_input == '1':
+            titolo = input('Inserisci il titolo del film: ')
+            trama = input('Inserisci la trama del film: ')
+            translator = google_translator()
+            tramaEN = translator.translate(trama, lang_src='it', lang_tgt='en')
+            # print(tramaEN)
+            set_input.loc[len(set_input.index)] = [titolo, tramaEN]
+            scelta_input = input('Vuoi aggiungere un altro film al set? Digita 1 se sì, 0 altrimenti: ')
+        set_input.set_index('title', inplace=True)
+        # print(set_input)
+
+    else:
+        print('Digita una scelta valida.')
+
+X_test = set_input['overview']
+# print(X_test)
+X_test_vec = vettorizzatore.transform(X_test)
+# print(X_test_vec)
+risultati_finali = pd.DataFrame(classificatore_scelto.predict(X_test_vec), columns=contatore_generi,
+                                index=set_input.index)
+# print(risultati_finali)
+generi_previsti = risultati_finali.apply(lambda p: p.index[p.astype(bool)].tolist(), 1)
+print(generi_previsti)

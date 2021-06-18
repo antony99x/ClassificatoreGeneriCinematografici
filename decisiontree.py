@@ -19,6 +19,7 @@ def classificazione(y_train, y_valid, contatore_generi, costruzione_modello):
     print("Training: ", train_dtr_acc)
     print("Validation: ", valid_dtr_acc)
     print("\n\n\n")
+    return model_dtr
 
 
 def getAccTrain():
