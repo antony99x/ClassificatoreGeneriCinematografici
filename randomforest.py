@@ -19,6 +19,7 @@ def classificazione(y_train, y_valid, contatore_generi, costruzione_modello):
     print("Training: ", train_rfc_acc)
     print("Validation: ", valid_rfc_acc)
     print("\n\n\n")
+    return model_rfc
 
 
 def getAccTrain():
