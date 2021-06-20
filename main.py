@@ -20,7 +20,7 @@ dataframeCompleto = pd.read_csv('movies_metadata.csv', low_memory=False)
 # print(dataframeCompleto.head()) per visualizzare i primi 5 film del dataset
 
 # Creo un nuovo dataframe contenente solo le colonne che mi servono
-dataframe = dataframeCompleto[['title', 'tagline', 'original_title', 'overview', 'genres']]
+dataframe = dataframeCompleto[['title', 'overview', 'genres']]
 
 # Setto il titolo come indice
 dataframe.set_index('title', inplace=True)
